@@ -9,15 +9,16 @@ export const runtime = 'nodejs';
 export const config = {
   api: {
     bodyParser: false,
-    responseLimit: false,
+    responseLimit: '50mb',
+    maxDuration: 300,
   },
 }
 
 export async function POST(request: NextRequest) {
   try {
     // Получаем файл из формы
-    const data = await request.formData();
-    const file = data.get('audio_file');
+    const formData = await request.formData();
+    const file = formData.get('audio_file');
 
     if (!file) {
       return NextResponse.json(
@@ -25,9 +26,7 @@ export async function POST(request: NextRequest) {
           success: false,
           error: 'No file uploaded',
         },
-        { 
-          status: 400,
-        }
+        { status: 400 }
       );
     }
 
@@ -57,6 +56,10 @@ export async function POST(request: NextRequest) {
 
     // Получаем результат
     const outputData = await ffmpeg.readFile('output.mp3');
+    
+    // Очищаем файлы
+    await ffmpeg.deleteFile('input.audio');
+    await ffmpeg.deleteFile('output.mp3');
     
     // Отправляем файл
     return new Response(outputData, {
