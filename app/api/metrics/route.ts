@@ -1,8 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Типы для метрик
+type RequestMetric = {
+  id: string;
+  timestamp: string;
+  status: 'success' | 'error';
+  fileType?: string;
+  fileSize?: string;
+  processingTime?: number;
+  error?: string;
+};
+
+type MetricsStore = {
+  requests: RequestMetric[];
+  stats: {
+    total: number;
+    success: number;
+    error: number;
+    avgProcessingTime: number;
+  };
+};
+
 // Имитация хранилища метрик (в реальном приложении использовали бы базу данных)
-let metrics = {
-  requests: [] as any[],
+const metrics: MetricsStore = {
+  requests: [],
   stats: {
     total: 0,
     success: 0,
@@ -26,11 +47,13 @@ export async function POST(request: NextRequest) {
     const data = await request.json();
     
     // Добавляем новую метрику
-    metrics.requests.unshift({
+    const newMetric: RequestMetric = {
       id: Math.random().toString(36).substring(7),
       timestamp: new Date().toISOString(),
       ...data
-    });
+    };
+
+    metrics.requests.unshift(newMetric);
 
     // Оставляем только последние 50 запросов
     metrics.requests = metrics.requests.slice(0, 50);
