@@ -44,8 +44,11 @@ export async function POST(request: NextRequest) {
     // Получаем обработанный файл
     const outputData = await ffmpeg.readFile('output.mp3');
     
+    // Конвертируем Uint8Array в Buffer для Vercel Blob
+    const buffer = Buffer.from(outputData as Uint8Array);
+    
     // Загружаем обработанный файл обратно в Blob storage
-    const { url: processedUrl } = await put('processed.mp3', outputData, {
+    const { url: processedUrl } = await put('processed.mp3', buffer, {
       access: 'public',
       contentType: 'audio/mpeg'
     });

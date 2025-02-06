@@ -30,7 +30,8 @@ export async function POST(request: Request): Promise<NextResponse> {
             throw new Error('Failed to process audio');
           }
 
-          return { success: true, url: blob.url };
+          // Не возвращаем значение, так как onUploadCompleted должен быть void
+          console.log('Processing completed:', blob.url);
         } catch (error) {
           console.error('Error processing audio:', error);
           throw error;
