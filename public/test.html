@@ -2,16 +2,29 @@
 <html>
 <head>
     <title>Audio Upload Test</title>
-    <script type="module">
-        import { upload } from 'https://unpkg.com/@vercel/blob/client/index.js';
-        
-        window.uploadFile = async () => {
+    <script async src="https://esm.sh/@vercel/blob/client"></script>
+    <script>
+        function waitForVercelBlob() {
+            return new Promise((resolve) => {
+                const check = () => {
+                    if (window.vercelBlob) {
+                        resolve(window.vercelBlob);
+                    } else {
+                        setTimeout(check, 100);
+                    }
+                };
+                check();
+            });
+        }
+
+        async function uploadFile() {
             const file = document.getElementById('fileInput').files[0];
             if (!file) return;
 
             try {
                 document.getElementById('result').innerHTML = 'Uploading...';
                 
+                const { upload } = await waitForVercelBlob();
                 const blob = await upload(file.name, file, {
                     access: 'public',
                     handleUploadUrl: '/api/upload',
@@ -27,15 +40,54 @@
                     <p style="color: red">Error: ${error.message}</p>
                 `;
             }
-        };
+        }
     </script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .upload-container {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .button {
+            background: #0070f3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        .button:hover {
+            background: #0051cc;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .success {
+            background: #e6ffe6;
+            color: #006600;
+        }
+        .error {
+            background: #ffe6e6;
+            color: #cc0000;
+        }
+    </style>
 </head>
 <body>
-    <h1>Audio Upload Test</h1>
-    <div style="margin: 20px 0;">
+    <h1>🎵 Audio Upload Test</h1>
+    <div class="upload-container">
         <input type="file" id="fileInput" accept="audio/*">
-        <button onclick="uploadFile()">Upload</button>
+        <button onclick="uploadFile()" class="button">Upload</button>
     </div>
-    <div id="result"></div>
+    <div id="result" class="result"></div>
 </body>
 </html> 
