@@ -49,9 +49,15 @@ export async function POST(request: NextRequest) {
         // Фильтры
         '-filter_complex',
         [
-          // Регулируем громкость треков и добавляем медитативный реверб на голос
-          '[0:a]volume=7dB,aecho=0.8:0.7:700|1000|1500:0.5|0.3|0.2,highpass=f=200[voice_echo]',
-          '[voice_echo]aecho=0.6:0.6:50|100:0.3|0.2[voice]',
+          // Разделяем на сухой и мокрый сигналы
+          '[0:a]asplit=2[dry][wet]',
+          // Обрабатываем мокрый сигнал (реверб)
+          '[wet]volume=-17dB,aecho=0.8:0.7:700|1000|1500:0.5|0.3|0.2,highpass=f=200[reverb]',
+          // Микшируем сухой сигнал с ревербом
+          '[dry][reverb]amix=inputs=2:weights=1 0.14[voice_mixed]',
+          // Добавляем финальное усиление голоса
+          '[voice_mixed]volume=4dB[voice]',
+          // Обрабатываем музыку
           '[1:a]volume=-14dB,atrim=0:360,asetpts=PTS-STARTPTS[audio_trimmed]',
           // Добавляем фейд в конце (15 секунд)
           '[audio_trimmed]afade=t=out:st=345:d=15[music]',
