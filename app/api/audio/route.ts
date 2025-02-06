@@ -1,6 +1,8 @@
-import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { toBlobURL } from '@ffmpeg/util';
 import { NextRequest, NextResponse } from 'next/server';
+import ffmpeg from 'fluent-ffmpeg';
+import { readFile, writeFile, unlink } from 'fs/promises';
+import { join } from 'path';
+import { tmpdir } from 'os';
 
 // Отключаем Edge Runtime для этого роута
 export const runtime = 'nodejs';
@@ -30,43 +32,49 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Создаем инстанс FFmpeg
-    const ffmpeg = new FFmpeg();
-    
-    // Загружаем WASM
-    await ffmpeg.load({
-      coreURL: await toBlobURL('/ffmpeg-core.wasm', 'text/wasm'),
-      wasmURL: await toBlobURL('/ffmpeg.wasm', 'text/wasm'),
-    });
+    // Создаем временные пути для файлов
+    const inputPath = join(tmpdir(), `input-${Date.now()}.mp3`);
+    const outputPath = join(tmpdir(), `output-${Date.now()}.mp3`);
 
-    // Читаем файл
-    const inputBuffer = await (file as File).arrayBuffer();
-    await ffmpeg.writeFile('input.audio', new Uint8Array(inputBuffer));
+    // Сохраняем входной файл
+    const buffer = Buffer.from(await (file as File).arrayBuffer());
+    await writeFile(inputPath, buffer);
 
-    // Обрезаем до 1 минуты и конвертируем в mp3 с пониженным битрейтом
-    await ffmpeg.exec([
-      '-i', 'input.audio',
-      '-t', '60',
-      '-acodec', 'libmp3lame',
-      '-b:a', '128k',
-      '-ac', '2',
-      '-ar', '44100',
-      'output.mp3'
-    ]);
+    // Обрабатываем аудио
+    return new Promise((resolve, reject) => {
+      ffmpeg(inputPath)
+        .toFormat('mp3')
+        .duration(60)
+        .audioCodec('libmp3lame')
+        .audioBitrate(128)
+        .audioChannels(2)
+        .audioFrequency(44100)
+        .on('end', async () => {
+          try {
+            // Читаем обработанный файл
+            const outputBuffer = await readFile(outputPath);
+            
+            // Отправляем файл
+            resolve(new Response(outputBuffer, {
+              headers: {
+                'Content-Type': 'audio/mpeg',
+                'Content-Disposition': 'attachment; filename=trimmed.mp3',
+              }
+            }));
 
-    // Получаем результат
-    const outputData = await ffmpeg.readFile('output.mp3');
-    
-    // Очищаем файлы
-    await ffmpeg.deleteFile('input.audio');
-    await ffmpeg.deleteFile('output.mp3');
-    
-    // Отправляем файл
-    return new Response(outputData, {
-      headers: {
-        'Content-Type': 'audio/mpeg',
-        'Content-Disposition': 'attachment; filename=trimmed.mp3',
-      }
+            // Удаляем временные файлы
+            await Promise.all([
+              unlink(inputPath).catch(() => {}),
+              unlink(outputPath).catch(() => {})
+            ]);
+          } catch (error) {
+            reject(error);
+          }
+        })
+        .on('error', (error: Error) => {
+          reject(error);
+        })
+        .save(outputPath);
     });
 
   } catch (error) {
