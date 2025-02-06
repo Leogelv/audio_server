@@ -61,11 +61,11 @@ export async function POST(request: NextRequest) {
           // Добавляем финальное усиление голоса
           '[voice_mixed]volume=2dB[voice]',
           // Обрабатываем музыку
-          '[1:a]volume=-22dB,atrim=0:395,asetpts=PTS-STARTPTS[audio_trimmed]',
+          '[1:a]volume=-24dB,atrim=0:395,asetpts=PTS-STARTPTS[audio_trimmed]',
           // Добавляем фейд в конце (15 секунд)
           '[audio_trimmed]afade=t=out:st=380:d=15[music]',
           // Микшируем треки и добавляем лимитер
-          '[voice][music]amix=inputs=2:duration=longest:dropout_transition=0,volume=12dB,alimiter=level_in=1:level_out=1:limit=0.7:attack=5:release=50[out]'
+          '[voice][music]amix=inputs=2:duration=longest:dropout_transition=0,volume=14dB,alimiter=level_in=1:level_out=1:limit=0.7:attack=5:release=50[out]'
         ].join(';'),
         
         // Выходные параметры
