@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
           // Микшируем сухой сигнал с ревербом
           '[dry][reverb]amix=inputs=2:weights=1 0.14[voice_mixed]',
           // Добавляем финальное усиление голоса
-          '[voice_mixed]volume=4dB[voice]',
+          '[voice_mixed]volume=10dB[voice]',
           // Обрабатываем музыку
           '[1:a]volume=-14dB,atrim=0:360,asetpts=PTS-STARTPTS[audio_trimmed]',
           // Добавляем фейд в конце (15 секунд)
