@@ -60,9 +60,9 @@ export async function POST(request: NextRequest) {
           // Добавляем финальное усиление голоса
           '[voice_mixed]volume=14dB[voice]',
           // Обрабатываем музыку
-          '[1:a]volume=-14dB,atrim=0:360,asetpts=PTS-STARTPTS[audio_trimmed]',
+          '[1:a]volume=-14dB,atrim=0:395,asetpts=PTS-STARTPTS[audio_trimmed]',
           // Добавляем фейд в конце (15 секунд)
-          '[audio_trimmed]afade=t=out:st=345:d=15[music]',
+          '[audio_trimmed]afade=t=out:st=380:d=15[music]',
           // Микшируем треки и усиливаем общий микс
           '[voice][music]amix=inputs=2:duration=first:dropout_transition=0,volume=5dB[out]'
         ].join(';'),
