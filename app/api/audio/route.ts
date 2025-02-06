@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import ffmpeg from 'fluent-ffmpeg';
+import { spawn } from 'child_process';
 import { readFile, writeFile, unlink } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -40,41 +40,44 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(await (file as File).arrayBuffer());
     await writeFile(inputPath, buffer);
 
-    // Обрабатываем аудио
-    return new Promise((resolve, reject) => {
-      ffmpeg(inputPath)
-        .toFormat('mp3')
-        .duration(60)
-        .audioCodec('libmp3lame')
-        .audioBitrate(128)
-        .audioChannels(2)
-        .audioFrequency(44100)
-        .on('end', async () => {
-          try {
-            // Читаем обработанный файл
-            const outputBuffer = await readFile(outputPath);
-            
-            // Отправляем файл
-            resolve(new Response(outputBuffer, {
-              headers: {
-                'Content-Type': 'audio/mpeg',
-                'Content-Disposition': 'attachment; filename=trimmed.mp3',
-              }
-            }));
+    // Обрабатываем аудио через ffmpeg CLI
+    await new Promise((resolve, reject) => {
+      const ffmpeg = spawn('ffmpeg', [
+        '-i', inputPath,
+        '-t', '60',
+        '-acodec', 'libmp3lame',
+        '-b:a', '128k',
+        '-ac', '2',
+        '-ar', '44100',
+        outputPath
+      ]);
 
-            // Удаляем временные файлы
-            await Promise.all([
-              unlink(inputPath).catch(() => {}),
-              unlink(outputPath).catch(() => {})
-            ]);
-          } catch (error) {
-            reject(error);
-          }
-        })
-        .on('error', (error: Error) => {
-          reject(error);
-        })
-        .save(outputPath);
+      ffmpeg.on('close', (code) => {
+        if (code === 0) {
+          resolve(null);
+        } else {
+          reject(new Error(`FFmpeg process exited with code ${code}`));
+        }
+      });
+
+      ffmpeg.on('error', reject);
+    });
+
+    // Читаем обработанный файл
+    const outputBuffer = await readFile(outputPath);
+
+    // Удаляем временные файлы
+    await Promise.all([
+      unlink(inputPath).catch(() => {}),
+      unlink(outputPath).catch(() => {})
+    ]);
+
+    // Отправляем файл
+    return new Response(outputBuffer, {
+      headers: {
+        'Content-Type': 'audio/mpeg',
+        'Content-Disposition': 'attachment; filename=trimmed.mp3',
+      }
     });
 
   } catch (error) {

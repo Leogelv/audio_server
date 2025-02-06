@@ -1,7 +1,5 @@
-import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { toBlobURL } from '@ffmpeg/util';
-import { put } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
+import { put } from '@vercel/blob';
 
 export const runtime = 'nodejs';
 
@@ -20,38 +18,8 @@ export async function POST(request: NextRequest) {
     const response = await fetch(url);
     const audioData = await response.arrayBuffer();
 
-    // Создаем инстанс FFmpeg
-    const ffmpeg = new FFmpeg();
-    
-    // Загружаем WASM
-    await ffmpeg.load({
-      coreURL: await toBlobURL('/ffmpeg-core.wasm', 'text/wasm'),
-      wasmURL: await toBlobURL('/ffmpeg.wasm', 'text/wasm'),
-    });
-
-    // Обрабатываем аудио
-    await ffmpeg.writeFile('input.audio', new Uint8Array(audioData));
-    await ffmpeg.exec([
-      '-i', 'input.audio',
-      '-t', '60',
-      '-acodec', 'libmp3lame',
-      '-b:a', '128k',
-      '-ac', '2',
-      '-ar', '44100',
-      'output.mp3'
-    ]);
-
-    // Получаем обработанный файл
-    const outputData = await ffmpeg.readFile('output.mp3');
-    
-    // Конвертируем Uint8Array в Buffer для Vercel Blob
-    const buffer = Buffer.from(outputData as Uint8Array);
-    
-    // Очищаем файлы
-    await ffmpeg.deleteFile('input.audio');
-    await ffmpeg.deleteFile('output.mp3');
-    
-    // Загружаем обработанный файл обратно в Blob storage
+    // Отправляем файл обратно в Blob storage
+    const buffer = Buffer.from(audioData);
     const { url: processedUrl } = await put('processed.mp3', buffer, {
       access: 'public',
       contentType: 'audio/mpeg'
