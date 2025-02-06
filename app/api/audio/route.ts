@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       ffmpeg.stdout.on('data', (data) => {
         const match = data.toString().match(/time=(\d+):(\d+):(\d+\.\d+)/);
         if (match) {
-          const [_, hours, minutes, seconds] = match;
+          const [, hours, minutes, seconds] = match;
           const currentTime = parseInt(hours) * 3600 + parseInt(minutes) * 60 + parseFloat(seconds);
           if (currentTime - lastProgress >= 30) {
             console.log(`Processing progress: ${Math.floor(currentTime)}s`);
