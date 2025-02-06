@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
           // Добавляем фейд в конце (15 секунд)
           '[audio_trimmed]afade=t=out:st=380:d=15[music]',
           // Микшируем треки и усиливаем общий микс
-          '[voice][music]amix=inputs=2:duration=first:dropout_transition=0,volume=5dB[out]'
+          '[voice][music]amix=inputs=2:duration=longest:dropout_transition=0,volume=5dB[out]'
         ].join(';'),
         
         // Выходные параметры
