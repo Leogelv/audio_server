@@ -2,27 +2,24 @@ import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request): Promise<NextResponse> {
-  const body = (await request.json()) as HandleUploadBody;
-
   try {
+    const body = (await request.json()) as HandleUploadBody;
+
     const jsonResponse = await handleUpload({
       body,
       request,
-      onBeforeGenerateToken: async (pathname: string) => {
-        // Здесь можно добавить проверку авторизации
+      onBeforeGenerateToken: async () => {
         return {
           allowedContentTypes: ['audio/*'],
           maximumSizeInBytes: 50 * 1024 * 1024, // 50MB
         };
       },
-      onUploadCompleted: async ({ blob, tokenPayload }) => {
-        // После успешной загрузки отправляем файл на обработку
+      onUploadCompleted: async ({ blob }) => {
         try {
+          // Отправляем файл на обработку
           const response = await fetch(`${process.env.VERCEL_URL}/api/audio/process`, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: blob.url }),
           });
 
@@ -30,19 +27,19 @@ export async function POST(request: Request): Promise<NextResponse> {
             throw new Error('Failed to process audio');
           }
 
-          // Не возвращаем значение, так как onUploadCompleted должен быть void
-          console.log('Processing completed:', blob.url);
+          const result = await response.json();
+          console.log('Processing completed:', result);
         } catch (error) {
-          console.error('Error processing audio:', error);
-          throw error;
+          console.error('Processing error:', error);
         }
       },
     });
 
     return NextResponse.json(jsonResponse);
   } catch (error) {
+    console.error('Upload error:', error);
     return NextResponse.json(
-      { error: (error as Error).message },
+      { error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 400 }
     );
   }

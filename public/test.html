@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Audio Upload Test</title>
+    <script src="https://unpkg.com/@vercel/blob/client"></script>
+</head>
+<body>
+    <h1>Audio Upload Test</h1>
+    <input type="file" id="fileInput" accept="audio/*">
+    <button onclick="uploadFile()">Upload</button>
+    <div id="result"></div>
+
+    <script>
+        async function uploadFile() {
+            const file = document.getElementById('fileInput').files[0];
+            if (!file) return;
+
+            try {
+                const blob = await upload(file.name, file, {
+                    access: 'public',
+                    handleUploadUrl: '/api/upload',
+                });
+
+                document.getElementById('result').innerHTML = `
+                    <p>Upload successful!</p>
+                    <p>URL: <a href="${blob.url}" target="_blank">${blob.url}</a></p>
+                `;
+            } catch (error) {
+                document.getElementById('result').innerHTML = `
+                    <p style="color: red">Error: ${error.message}</p>
+                `;
+            }
+        }
+    </script>
+</body>
+</html> 
