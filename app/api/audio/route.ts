@@ -52,10 +52,10 @@ export async function POST(request: NextRequest) {
         [
           // Разделяем на сухой и мокрый сигналы
           '[0:a]asplit=2[dry][wet]',
-          // Обрабатываем мокрый сигнал (реверб)
-          '[wet]volume=-14dB,aecho=0.9:0.8:900|1200|1800:0.6|0.4|0.3,highpass=f=200[reverb]',
-          // Микшируем сухой сигнал с ревербом
-          '[dry][reverb]amix=inputs=2:weights=1 0.40[voice_delayed]',
+          // Обрабатываем мокрый сигнал (эхо + реверб)
+          '[wet]volume=-14dB,aecho=0.9:0.8:900|1200|1800:0.6|0.4|0.3,areverse,aecho=0.8:0.88:60|30:0.4|0.3,areverse,highpass=f=200,areverb=delay=100:decay=5[reverb]',
+          // Микшируем сухой сигнал с эффектами
+          '[dry][reverb]amix=inputs=2:weights=1 0.35[voice_delayed]',
           // Добавляем задержку в 12 секунд
           '[voice_delayed]adelay=12000|12000[voice_mixed]',
           // Добавляем финальное усиление голоса
