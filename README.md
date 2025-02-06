@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Audio Trimmer API 🎵
 
-## Getting Started
+Simple API service that trims audio files to 1 minute and converts them to MP3 format.
 
-First, run the development server:
+## API Endpoints
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+### POST /api/audio
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Trims an audio file to 1 minute and converts it to MP3 format.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+#### Request
+- Method: `POST`
+- Content-Type: `multipart/form-data`
+- Body:
+  - `audio_file`: Audio file (any format supported by FFmpeg)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+#### Response
+- Success:
+  - Status: 200
+  - Content-Type: `audio/mpeg`
+  - Body: Trimmed MP3 file
 
-## Learn More
+- Error:
+  - Status: 400/500
+  - Content-Type: `application/json`
+  - Body:
+    ```json
+    {
+      "success": false,
+      "error": "Error message"
+    }
+    ```
 
-To learn more about Next.js, take a look at the following resources:
+## Bubble.io Integration
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+To use this API in Bubble.io:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Use the "API Connector" plugin
+2. Create a new API call with:
+   - Method: POST
+   - URL: `https://your-deployed-url.vercel.app/api/audio`
+   - Body type: Form Data
+   - Add field: `audio_file` (File type)
 
-## Deploy on Vercel
+3. In your Bubble workflow:
+   - Trigger your action (e.g., button click)
+   - Add "Make API call"
+   - Select your configured API
+   - For the `audio_file` parameter, use a file input or uploaded file from your app
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The API will return the trimmed audio file that you can then save or play in your Bubble app.
