@@ -1,10 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Увеличиваем лимиты для Edge Runtime
+  // Настройки для Edge Runtime
   experimental: {
-    serverActions: {
-      bodySizeLimit: '50mb'
-    },
+    serverActions: true,
+    serverComponentsExternalPackages: ['@ffmpeg/ffmpeg', '@ffmpeg/util'],
   },
   // Настройки для API роутов
   api: {
@@ -22,4 +21,14 @@ const nextConfig = {
       },
     ],
   },
-} 
+  // Настройки для Vercel
+  webpack: (config) => {
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+    };
+    return config;
+  },
+}
+
+module.exports = nextConfig; 
