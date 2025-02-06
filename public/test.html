@@ -2,45 +2,45 @@
 <html>
 <head>
     <title>Audio Upload Test</title>
-    <script async src="https://esm.sh/@vercel/blob/client"></script>
-    <script>
-        function waitForVercelBlob() {
-            return new Promise((resolve) => {
-                const check = () => {
-                    if (window.vercelBlob) {
-                        resolve(window.vercelBlob);
-                    } else {
-                        setTimeout(check, 100);
-                    }
-                };
-                check();
-            });
-        }
-
-        async function uploadFile() {
+    <script type="module">
+        import { upload } from 'https://esm.sh/@vercel/blob/client';
+        
+        window.uploadFile = async () => {
             const file = document.getElementById('fileInput').files[0];
-            if (!file) return;
+            if (!file) {
+                console.log('No file selected');
+                return;
+            }
 
             try {
+                console.log('Starting upload for file:', file.name);
                 document.getElementById('result').innerHTML = 'Uploading...';
                 
-                const { upload } = await waitForVercelBlob();
+                console.log('Calling upload with:', {
+                    fileName: file.name,
+                    fileSize: file.size,
+                    fileType: file.type
+                });
+
                 const blob = await upload(file.name, file, {
                     access: 'public',
                     handleUploadUrl: '/api/upload',
                 });
 
+                console.log('Upload response:', blob);
+
                 document.getElementById('result').innerHTML = `
-                    <p>Upload successful!</p>
+                    <p class="success">Upload successful!</p>
                     <p>URL: <a href="${blob.url}" target="_blank">${blob.url}</a></p>
                 `;
             } catch (error) {
-                console.error('Upload error:', error);
+                console.error('Upload error details:', error);
                 document.getElementById('result').innerHTML = `
-                    <p style="color: red">Error: ${error.message}</p>
+                    <p class="error">Error: ${error.message}</p>
+                    <pre>${JSON.stringify(error, null, 2)}</pre>
                 `;
             }
-        }
+        };
     </script>
     <style>
         body {
@@ -80,6 +80,14 @@
             background: #ffe6e6;
             color: #cc0000;
         }
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            background: #f8f8f8;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -89,5 +97,8 @@
         <button onclick="uploadFile()" class="button">Upload</button>
     </div>
     <div id="result" class="result"></div>
+    <div>
+        <p>Open browser console (F12) to see detailed logs</p>
+    </div>
 </body>
 </html> 
