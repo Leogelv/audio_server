@@ -1,7 +1,11 @@
 FROM node:18-alpine
 
-# Устанавливаем ffmpeg
-RUN apk add --no-cache ffmpeg
+# Устанавливаем ffmpeg и другие зависимости
+RUN apk add --no-cache ffmpeg python3 make g++ 
+
+# Увеличиваем лимиты на файлы
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+ENV NEXT_SHARP_PATH="/tmp/node_modules/sharp"
 
 WORKDIR /app
 
@@ -9,7 +13,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Устанавливаем зависимости
-RUN npm install
+RUN npm ci
 
 # Копируем исходники
 COPY . .
