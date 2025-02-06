@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const voiceTrack = formData.get('voice_track');
     const audioTrack = formData.get('audio_track');
+    const fileName = formData.get('name') || 'mixed';
 
     if (!voiceTrack || !audioTrack) {
       return NextResponse.json(
@@ -131,7 +132,7 @@ export async function POST(request: NextRequest) {
     return new Response(outputBuffer, {
       headers: {
         'Content-Type': 'audio/mpeg',
-        'Content-Disposition': 'attachment; filename=mixed.mp3',
+        'Content-Disposition': `attachment; filename=${fileName}.mp3`,
         'Content-Length': outputBuffer.length.toString(),
       }
     });
