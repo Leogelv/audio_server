@@ -49,8 +49,9 @@ export async function POST(request: NextRequest) {
         // Фильтры
         '-filter_complex',
         [
-          // Регулируем громкость треков и добавляем реверб на голос
-          '[0:a]volume=7dB,aecho=0.8:0.88:60:0.4[voice]',
+          // Регулируем громкость треков и добавляем медитативный реверб на голос
+          '[0:a]volume=7dB,aecho=0.8:0.7:700|1000|1500:0.5|0.3|0.2,highpass=f=200[voice_echo]',
+          '[voice_echo]aecho=0.6:0.6:50|100:0.3|0.2[voice]',
           '[1:a]volume=-14dB,atrim=0:360,asetpts=PTS-STARTPTS[audio_trimmed]',
           // Добавляем фейд в конце (15 секунд)
           '[audio_trimmed]afade=t=out:st=345:d=15[music]',
