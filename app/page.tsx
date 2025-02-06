@@ -1,128 +1,90 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-
-// Типы для нашего мониторинга
-type RequestLog = {
-  id: string;
-  timestamp: string;
-  status: 'success' | 'error';
-  fileType?: string;
-  fileSize?: string;
-  error?: string;
-  processingTime?: number;
-};
-
-type Metrics = {
-  requests: RequestLog[];
-  stats: {
-    total: number;
-    success: number;
-    error: number;
-    avgProcessingTime: number;
-  };
-};
+import { upload } from '@vercel/blob/client';
+import { useState, useRef } from 'react';
 
 export default function Home() {
-  const [metrics, setMetrics] = useState<Metrics>({
-    requests: [],
-    stats: {
-      total: 0,
-      success: 0,
-      error: 0,
-      avgProcessingTime: 0
-    }
-  });
+  const inputFileRef = useRef<HTMLInputElement>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [processedUrl, setProcessedUrl] = useState<string | null>(null);
 
-  // Функция для получения метрик
-  const fetchMetrics = async () => {
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!inputFileRef.current?.files?.[0]) return;
+
     try {
-      const response = await fetch('/api/metrics');
-      if (!response.ok) throw new Error('Failed to fetch metrics');
-      const data = await response.json();
-      setMetrics(data);
-    } catch (error) {
-      console.error('Error fetching metrics:', error);
+      setLoading(true);
+      setError(null);
+
+      const file = inputFileRef.current.files[0];
+      const blob = await upload(file.name, file, {
+        access: 'public',
+        handleUploadUrl: '/api/upload',
+      });
+
+      setProcessedUrl(blob.url);
+    } catch (err) {
+      console.error('Upload error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to upload file');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Получаем метрики каждые 2 секунды
-  useEffect(() => {
-    fetchMetrics();
-    const interval = setInterval(fetchMetrics, 2000);
-    return () => clearInterval(interval);
-  }, []);
-
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-8">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">🎵 Audio Processing Monitor</h1>
-        <p className="text-gray-400">Real-time API request monitoring</p>
-      </div>
+    <main className="min-h-screen p-8 flex flex-col items-center justify-center bg-gradient-to-b from-blue-500 to-purple-600">
+      <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full">
+        <h1 className="text-3xl font-bold text-center mb-8 text-gray-800">
+          🎵 Audio Trimmer
+        </h1>
+        
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Select Audio File
+            </label>
+            <input
+              type="file"
+              accept="audio/*"
+              ref={inputFileRef}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-gray-800 p-4 rounded-lg">
-          <h3 className="text-gray-400 text-sm">Total Requests</h3>
-          <p className="text-2xl font-bold">{metrics.stats.total}</p>
-        </div>
-        <div className="bg-green-900 p-4 rounded-lg">
-          <h3 className="text-gray-400 text-sm">Successful</h3>
-          <p className="text-2xl font-bold">{metrics.stats.success}</p>
-        </div>
-        <div className="bg-red-900 p-4 rounded-lg">
-          <h3 className="text-gray-400 text-sm">Failed</h3>
-          <p className="text-2xl font-bold">{metrics.stats.error}</p>
-        </div>
-        <div className="bg-blue-900 p-4 rounded-lg">
-          <h3 className="text-gray-400 text-sm">Avg. Processing Time</h3>
-          <p className="text-2xl font-bold">{metrics.stats.avgProcessingTime}ms</p>
-        </div>
-      </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className={`w-full py-3 px-4 rounded-md text-white font-medium ${
+              loading
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700'
+            } transition-colors`}
+          >
+            {loading ? 'Processing...' : 'Upload & Process'}
+          </button>
+        </form>
 
-      {/* Logs Table */}
-      <div className="bg-gray-800 rounded-lg overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-gray-700">
-              <th className="px-4 py-3 text-left">Timestamp</th>
-              <th className="px-4 py-3 text-left">Status</th>
-              <th className="px-4 py-3 text-left">File Type</th>
-              <th className="px-4 py-3 text-left">Size</th>
-              <th className="px-4 py-3 text-left">Processing Time</th>
-              <th className="px-4 py-3 text-left">Error</th>
-            </tr>
-          </thead>
-          <tbody>
-            {metrics.requests.map(log => (
-              <tr key={log.id} className="border-t border-gray-700 hover:bg-gray-750">
-                <td className="px-4 py-3">
-                  {new Date(log.timestamp).toLocaleTimeString()}
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`px-2 py-1 rounded-full text-xs ${
-                    log.status === 'success' ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'
-                  }`}>
-                    {log.status}
-                  </span>
-                </td>
-                <td className="px-4 py-3">{log.fileType || '-'}</td>
-                <td className="px-4 py-3">{log.fileSize || '-'}</td>
-                <td className="px-4 py-3">{log.processingTime ? `${log.processingTime}ms` : '-'}</td>
-                <td className="px-4 py-3 text-red-400">{log.error || '-'}</td>
-              </tr>
-            ))}
-            {metrics.requests.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                  Waiting for requests...
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+        {error && (
+          <div className="mt-4 p-3 bg-red-100 text-red-700 rounded-md">
+            {error}
+          </div>
+        )}
+
+        {processedUrl && (
+          <div className="mt-4 p-4 bg-green-100 text-green-700 rounded-md">
+            <p className="font-medium mb-2">Audio processed successfully!</p>
+            <a
+              href={processedUrl}
+              className="text-blue-600 hover:text-blue-800 underline break-all"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Download processed audio
+            </a>
+          </div>
+        )}
       </div>
-    </div>
+    </main>
   );
 } 
