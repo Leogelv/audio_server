@@ -14,16 +14,7 @@ export const config = {
 }
 
 export async function POST(request: NextRequest) {
-  const startTime = Date.now();
-  
   try {
-    // CORS заголовки
-    const headers = {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST',
-      'Access-Control-Allow-Headers': '*',
-    };
-
     // Получаем файл из формы
     const data = await request.formData();
     const file = data.get('audio_file');
@@ -36,7 +27,6 @@ export async function POST(request: NextRequest) {
         },
         { 
           status: 400,
-          headers 
         }
       );
     }
@@ -71,7 +61,6 @@ export async function POST(request: NextRequest) {
     // Отправляем файл
     return new Response(outputData, {
       headers: {
-        ...headers,
         'Content-Type': 'audio/mpeg',
         'Content-Disposition': 'attachment; filename=trimmed.mp3',
       }
@@ -84,14 +73,7 @@ export async function POST(request: NextRequest) {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred',
       },
-      { 
-        status: 500,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST',
-          'Access-Control-Allow-Headers': '*',
-        }
-      }
+      { status: 500 }
     );
   }
 } 

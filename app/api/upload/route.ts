@@ -8,12 +8,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     const jsonResponse = await handleUpload({
       body,
       request,
-      onBeforeGenerateToken: async () => {
-        return {
-          allowedContentTypes: ['audio/*'],
-          maximumSizeInBytes: 50 * 1024 * 1024, // 50MB
-        };
-      },
+      onBeforeGenerateToken: async () => ({
+        allowedContentTypes: ['audio/*'],
+        maximumSizeInBytes: 50 * 1024 * 1024, // 50MB
+      }),
       onUploadCompleted: async ({ blob }) => {
         try {
           // Отправляем файл на обработку
