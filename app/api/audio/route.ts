@@ -52,8 +52,8 @@ export async function POST(request: NextRequest) {
         [
           // Разделяем на сухой и мокрый сигналы
           '[0:a]asplit=2[dry][wet]',
-          // Обрабатываем мокрый сигнал (эхо + реверб)
-          '[wet]volume=-14dB,aecho=0.9:0.8:900|1200|1800:0.6|0.4|0.3,areverse,aecho=0.8:0.88:60|30:0.4|0.3,areverse,highpass=f=200,areverb=delay=100:decay=5[reverb]',
+          // Обрабатываем мокрый сигнал (эхо + реверб эффект)
+          '[wet]volume=-14dB,aecho=0.9:0.8:900|1200|1800:0.6|0.4|0.3,aecho=0.8:0.88:40|60|80:0.4|0.3|0.2,highpass=f=200[reverb]',
           // Микшируем сухой сигнал с эффектами
           '[dry][reverb]amix=inputs=2:weights=1 0.35[voice_delayed]',
           // Добавляем задержку в 12 секунд
