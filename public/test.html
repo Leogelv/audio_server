@@ -2,20 +2,16 @@
 <html>
 <head>
     <title>Audio Upload Test</title>
-    <script src="https://unpkg.com/@vercel/blob/client"></script>
-</head>
-<body>
-    <h1>Audio Upload Test</h1>
-    <input type="file" id="fileInput" accept="audio/*">
-    <button onclick="uploadFile()">Upload</button>
-    <div id="result"></div>
-
-    <script>
-        async function uploadFile() {
+    <script type="module">
+        import { upload } from 'https://unpkg.com/@vercel/blob/client/index.js';
+        
+        window.uploadFile = async () => {
             const file = document.getElementById('fileInput').files[0];
             if (!file) return;
 
             try {
+                document.getElementById('result').innerHTML = 'Uploading...';
+                
                 const blob = await upload(file.name, file, {
                     access: 'public',
                     handleUploadUrl: '/api/upload',
@@ -26,11 +22,20 @@
                     <p>URL: <a href="${blob.url}" target="_blank">${blob.url}</a></p>
                 `;
             } catch (error) {
+                console.error('Upload error:', error);
                 document.getElementById('result').innerHTML = `
                     <p style="color: red">Error: ${error.message}</p>
                 `;
             }
-        }
+        };
     </script>
+</head>
+<body>
+    <h1>Audio Upload Test</h1>
+    <div style="margin: 20px 0;">
+        <input type="file" id="fileInput" accept="audio/*">
+        <button onclick="uploadFile()">Upload</button>
+    </div>
+    <div id="result"></div>
 </body>
 </html> 
