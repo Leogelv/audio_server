@@ -52,18 +52,22 @@ export async function POST(request: NextRequest) {
         [
           // Разделяем на сухой и мокрый сигналы
           '[0:a]asplit=2[dry][wet]',
-          // Обрабатываем мокрый сигнал (эхо + реверб эффект)
-          '[wet]volume=-14dB,aecho=0.9:0.8:900|1200|1800:0.6|0.4|0.3,aecho=0.8:0.88:40|60|80:0.4|0.3|0.2,highpass=f=200[reverb]',
+          // Замедляем оба сигнала через atempo (более качественное замедление)
+          '[dry]atempo=0.85[dry_slow]',
+          '[wet]atempo=0.85[wet_slow]',
+          // Обрабатываем мокрый сигнал (усиленный мягкий реверб)
+          '[wet_slow]volume=-6dB,aecho=0.8:0.88:60|90|120:0.5|0.4|0.3[echo]',
+          '[echo]aecho=0.7:0.8:400|700|1000|1300|1600:0.5|0.4|0.3|0.2|0.15,highpass=f=150,lowpass=f=4000[reverb]',
           // Микшируем сухой сигнал с эффектами
-          '[dry][reverb]amix=inputs=2:weights=1 0.35[voice_delayed]',
+          '[dry_slow][reverb]amix=inputs=2:weights=1 0.55[voice_delayed]',
           // Добавляем задержку в 12 секунд
           '[voice_delayed]adelay=12000|12000[voice_mixed]',
           // Добавляем финальное усиление голоса
           '[voice_mixed]volume=2dB[voice]',
-          // Обрабатываем музыку
-          '[1:a]volume=-24dB,atrim=0:378,asetpts=PTS-STARTPTS[audio_trimmed]',
+          // Обрабатываем музыку (увеличиваем длину из-за замедления войса)
+          '[1:a]volume=-24dB,atrim=0:445,asetpts=PTS-STARTPTS[audio_trimmed]',
           // Добавляем фейд в конце (15 секунд)
-          '[audio_trimmed]afade=t=out:st=363:d=15[music]',
+          '[audio_trimmed]afade=t=out:st=430:d=15[music]',
           // Микшируем треки и добавляем лимитер
           '[voice][music]amix=inputs=2:duration=longest:dropout_transition=0,volume=18dB,alimiter=level_in=1:level_out=1:limit=0.7:attack=5:release=50[out]'
         ].join(';'),
