@@ -47,14 +47,14 @@ export async function POST(request: NextRequest) {
         voicePath,
         reverbPath,
         'reverb',
-        '90',     // Чуть меньше реверберации для экономии ресурсов
-        '30',     // Средний HF демпинг
-        '75',     // Средний размер
+        '95',     // Больше реверберации
+        '25',     // Меньше HF демпинга для кристальности
+        '80',     // Больше размер
         '100',    // Максимальная стерео база
         '0',      // Без пре-делея
-        '0.7',    // Стандартный микс
+        '0.75',   // Больше микс
         'highpass', '250',  // Срез низов
-        'treble', '+3',    // Умеренное усиление верхов
+        'treble', '+4',    // Больше верхов в реверб
         'gain', '-1'      // Контроль громкости
       ]);
 
@@ -92,25 +92,25 @@ export async function POST(request: NextRequest) {
           '[0:a]atempo=0.85[voice_slow]',
           // Замедляем реверб из SoX
           '[1:a]atempo=0.85[reverb_slow]',
-          // Обрабатываем сухой сигнал (оптимизированный EQ)
-          '[voice_slow]equalizer=f=250:t=h:w=1:g=-6,equalizer=f=3000:t=h:w=1:g=-8,equalizer=f=8000:t=h:w=1:g=-12[voice_eq]',
+          // Обрабатываем сухой сигнал (полный EQ)
+          '[voice_slow]equalizer=f=250:t=h:w=1:g=-6,equalizer=f=1500:t=h:w=1:g=-4,equalizer=f=3000:t=h:w=1:g=-8,equalizer=f=6000:t=h:w=1:g=-12,equalizer=f=10000:t=h:w=1:g=-14[voice_eq]',
           '[voice_eq]compand=0.3|0.3:1|1:-90/-60|-60/-40|-40/-30|-20/-20:6:0:-90:0.2[voice_comp]',
           // Микшируем с замедленным ревербом
-          '[voice_comp][reverb_slow]amix=inputs=2:weights=1 0.65[voice_mixed]',
+          '[voice_comp][reverb_slow]amix=inputs=2:weights=1 0.7[voice_mixed]',
           // Добавляем задержку
           '[voice_mixed]adelay=12000|12000,volume=2dB[voice]',
-          // Обрабатываем музыку (оптимизированная обработка)
-          '[2:a]volume=-24dB,atrim=0:445[audio_trimmed]',
+          // Обрабатываем музыку
+          '[2:a]volume=-24dB,atrim=0:445,asetpts=PTS-STARTPTS[audio_trimmed]',
           '[audio_trimmed]afade=t=out:st=430:d=15[music]',
           // Микшируем треки и добавляем лимитер
-          '[voice][music]amix=inputs=2:duration=longest:dropout_transition=0,volume=16dB,alimiter=level_in=1:level_out=1:limit=0.7:attack=5:release=50[out]'
+          '[voice][music]amix=inputs=2:duration=longest:dropout_transition=0,volume=18dB,alimiter=level_in=1:level_out=1:limit=0.7:attack=5:release=50[out]'
         ].join(';'),
         
-        // Выходные параметры (оптимизированные)
+        // Выходные параметры (максимальное качество)
         '-map', '[out]',
         '-acodec', 'libmp3lame',
-        '-q:a', '2',  // Чуть меньше качество для экономии
-        '-b:a', '256k',  // Меньший битрейт
+        '-q:a', '0',  // Максимальное качество
+        '-b:a', '320k',  // Максимальный битрейт
         '-ac', '2',
         '-ar', '44100',
         // Добавляем прогресс
