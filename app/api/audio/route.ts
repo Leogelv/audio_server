@@ -31,42 +31,76 @@ export async function POST(request: NextRequest) {
     const voicePath = join(tmpdir(), `voice-${Date.now()}.mp3`);
     const audioPath = join(tmpdir(), `audio-${Date.now()}.mp3`);
     const outputPath = join(tmpdir(), `output-${Date.now()}.mp3`);
+    const reverbPath = join(tmpdir(), `reverb-${Date.now()}.wav`); // Для SoX реверба
 
-    console.log('Processing started:', { voicePath, audioPath, outputPath });
+    console.log('Processing started:', { voicePath, audioPath, outputPath, reverbPath });
 
     // Сохраняем файлы
     await writeFile(voicePath, Buffer.from(await (voiceTrack as File).arrayBuffer()));
     await writeFile(audioPath, Buffer.from(await (audioTrack as File).arrayBuffer()));
 
-    console.log('Files saved, starting FFmpeg...');
+    console.log('Files saved, starting SoX processing...');
 
-    // Обрабатываем аудио через ffmpeg CLI
+    // Сначала обрабатываем голос через SoX для реверба
+    await new Promise((resolve, reject) => {
+      const sox = spawn('sox', [
+        voicePath,
+        reverbPath,
+        'reverb',
+        '95',     // Больше реверберации
+        '25',     // Ещё меньше HF демпинга для яркости
+        '80',     // Ещё больше размер
+        '100',    // Максимальная стерео база
+        '0',      // Без пре-делея
+        '0.75',   // Больше микс
+        'highpass', '250',  // Срез низов
+        'treble', '+4',    // Чуть больше верхов в реверб
+        'gain', '-1'      // Контроль громкости
+      ]);
+
+      sox.stderr.on('data', (data) => {
+        console.log(`sox: ${data}`);
+      });
+
+      sox.on('close', (code) => {
+        if (code === 0) {
+          resolve(null);
+        } else {
+          reject(new Error(`SoX process exited with code ${code}`));
+        }
+      });
+
+      sox.on('error', (error) => {
+        reject(error);
+      });
+    });
+
+    console.log('SoX processing complete, starting FFmpeg...');
+
+    // Теперь обрабатываем через ffmpeg
     await new Promise((resolve, reject) => {
       const ffmpeg = spawn('ffmpeg', [
         // Входные файлы
         '-i', voicePath,
+        '-i', reverbPath,
         '-i', audioPath,
         
         // Фильтры
         '-filter_complex',
         [
-          // Разделяем на сухой и мокрый сигналы
-          '[0:a]asplit=2[dry][wet]',
-          // Замедляем оба сигнала через atempo (более качественное замедление)
-          '[dry]atempo=0.85[dry_slow]',
-          '[wet]atempo=0.85[wet_slow]',
-          // Обрабатываем мокрый сигнал (усиленный мягкий реверб)
-          '[wet_slow]volume=-6dB,aecho=0.8:0.88:60|90|120:0.5|0.4|0.3[echo]',
-          '[echo]aecho=0.7:0.8:400|700|1000|1300|1600:0.5|0.4|0.3|0.2|0.15,highpass=f=150,lowpass=f=4000[reverb]',
-          // Микшируем сухой сигнал с эффектами
-          '[dry_slow][reverb]amix=inputs=2:weights=1 0.55[voice_delayed]',
-          // Добавляем задержку в 12 секунд
-          '[voice_delayed]adelay=12000|12000[voice_mixed]',
-          // Добавляем финальное усиление голоса
-          '[voice_mixed]volume=2dB[voice]',
-          // Обрабатываем музыку (увеличиваем длину из-за замедления войса)
-          '[1:a]volume=-24dB,atrim=0:445,asetpts=PTS-STARTPTS[audio_trimmed]',
-          // Добавляем фейд в конце (15 секунд)
+          // Замедляем оригинальный голос
+          '[0:a]atempo=0.85[voice_slow]',
+          // Замедляем реверб из SoX
+          '[1:a]atempo=0.85[reverb_slow]',
+          // Обрабатываем сухой сигнал (ещё мягче верха)
+          '[voice_slow]equalizer=f=250:t=h:w=1:g=-6,equalizer=f=1500:t=h:w=1:g=-4,equalizer=f=3000:t=h:w=1:g=-8,equalizer=f=6000:t=h:w=1:g=-12,equalizer=f=10000:t=h:w=1:g=-14[voice_eq]',
+          '[voice_eq]compand=0.3|0.3:1|1:-90/-60|-60/-40|-40/-30|-20/-20:6:0:-90:0.2[voice_comp]',
+          // Микшируем с замедленным ревербом (больше реверба)
+          '[voice_comp][reverb_slow]amix=inputs=2:weights=1 0.7[voice_mixed]',
+          // Добавляем задержку
+          '[voice_mixed]adelay=12000|12000,volume=2dB[voice]',
+          // Обрабатываем музыку
+          '[2:a]volume=-24dB,atrim=0:445,asetpts=PTS-STARTPTS[audio_trimmed]',
           '[audio_trimmed]afade=t=out:st=430:d=15[music]',
           // Микшируем треки и добавляем лимитер
           '[voice][music]amix=inputs=2:duration=longest:dropout_transition=0,volume=18dB,alimiter=level_in=1:level_out=1:limit=0.7:attack=5:release=50[out]'
@@ -127,7 +161,8 @@ export async function POST(request: NextRequest) {
     await Promise.all([
       unlink(voicePath).catch(() => {}),
       unlink(audioPath).catch(() => {}),
-      unlink(outputPath).catch(() => {})
+      unlink(outputPath).catch(() => {}),
+      unlink(reverbPath).catch(() => {})
     ]);
 
     console.log('Temporary files cleaned up, sending response...');
