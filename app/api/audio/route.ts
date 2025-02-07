@@ -93,10 +93,10 @@ export async function POST(request: NextRequest) {
           // Замедляем реверб из SoX
           '[1:a]atempo=0.85[reverb_slow]',
           // Обрабатываем сухой сигнал (полный EQ)
-          '[voice_slow]equalizer=f=250:t=h:w=1:g=-6,equalizer=f=1500:t=h:w=1:g=-4,equalizer=f=3000:t=h:w=1:g=-8,equalizer=f=6000:t=h:w=1:g=-12,equalizer=f=10000:t=h:w=1:g=-14[voice_eq]',
+          '[voice_slow]equalizer=f=250:t=h:w=1:g=-6,equalizer=f=1500:t=h:w=1:g=-4,equalizer=f=3000:t=h:w=1:g=-8,equalizer=f=6000:t=h:w=1:g=-12,equalizer=f=10000:t=h:w=1:g=-14,volume=-3dB[voice_eq]',
           '[voice_eq]compand=0.3|0.3:1|1:-90/-60|-60/-40|-40/-30|-20/-20:6:0:-90:0.2[voice_comp]',
           // Микшируем с замедленным ревербом (больше реверба)
-          '[voice_comp][reverb_slow]amix=inputs=2:weights=1 0.8[voice_mixed]',
+          '[voice_comp][reverb_slow]amix=inputs=2:weights=0.8 0.8[voice_mixed]',
           // Добавляем задержку
           '[voice_mixed]adelay=15000|15000,volume=2dB[voice]',
           // Обрабатываем музыку
