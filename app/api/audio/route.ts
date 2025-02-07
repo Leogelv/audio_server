@@ -41,11 +41,12 @@ export async function POST(request: NextRequest) {
 
     console.log('Files saved, starting SoX processing...');
 
-    // Сначала обрабатываем голос через SoX для реверба
+    // Сначала обрабатываем голос через SoX для реверба и замедления
     await new Promise((resolve, reject) => {
       const sox = spawn('sox', [
         voicePath,
         reverbPath,
+        'tempo', '-m', '0.85',  // Замедление с сохранением питча через музыкальный алгоритм
         'reverb',
         '100',    // Максимальная реверберация
         '20',     // Минимальный HF демпинг для длинного хвоста
@@ -88,15 +89,11 @@ export async function POST(request: NextRequest) {
         // Фильтры
         '-filter_complex',
         [
-          // Замедляем оригинальный голос
-          '[0:a]atempo=0.85[voice_slow]',
-          // Замедляем реверб из SoX
-          '[1:a]atempo=0.85[reverb_slow]',
           // Обрабатываем сухой сигнал (полный EQ)
-          '[voice_slow]equalizer=f=250:t=h:w=1:g=-6,equalizer=f=1500:t=h:w=1:g=-4,equalizer=f=3000:t=h:w=1:g=-8,equalizer=f=6000:t=h:w=1:g=-12,equalizer=f=10000:t=h:w=1:g=-14,volume=-3dB[voice_eq]',
+          '[0:a]equalizer=f=250:t=h:w=1:g=-6,equalizer=f=1500:t=h:w=1:g=-4,equalizer=f=3000:t=h:w=1:g=-8,equalizer=f=6000:t=h:w=1:g=-12,equalizer=f=10000:t=h:w=1:g=-14,volume=-3dB[voice_eq]',
           '[voice_eq]compand=0.3|0.3:1|1:-90/-60|-60/-40|-40/-30|-20/-20:6:0:-90:0.2[voice_comp]',
-          // Микшируем с замедленным ревербом (больше реверба)
-          '[voice_comp][reverb_slow]amix=inputs=2:weights=0.8 0.8[voice_mixed]',
+          // Микшируем с ревербом
+          '[voice_comp][1:a]amix=inputs=2:weights=0.8 0.8[voice_mixed]',
           // Добавляем задержку
           '[voice_mixed]adelay=15000|15000,volume=2dB[voice]',
           // Обрабатываем музыку
