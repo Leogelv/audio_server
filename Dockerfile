@@ -1,7 +1,7 @@
 FROM node:18-alpine
 
 # Устанавливаем ffmpeg и другие зависимости
-RUN apk add --no-cache ffmpeg python3 make g++ 
+RUN apk add --no-cache ffmpeg python3 make g++ sox 
 
 # Увеличиваем лимиты на файлы
 ENV NODE_OPTIONS="--max-old-space-size=4096"
