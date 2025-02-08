@@ -48,12 +48,12 @@ export async function POST(request: NextRequest) {
         reverbPath,
         'reverb',
         '61',     // Реверберация уменьшена еще на 4%
-        '15',     // Меньше HF демпинг для более длинного хвоста
+        '10',     // Еще меньше HF демпинг для более длинного хвоста
         '69',     // Размер уменьшен еще на 4%
         '100',    // Максимальная стерео база
         '0',      // Без пре-делея
         '0.53',   // Микс уменьшен еще на 4%
-        'highpass', '250',  // Срез низов
+        'highpass', '350',  // Срез низов повыше
         'treble', '+5',    // Больше верхов в реверб
         'gain', '-1'      // Контроль громкости
       ]);
@@ -93,12 +93,12 @@ export async function POST(request: NextRequest) {
           // Добавляем задержку к реверб-дорожке
           '[1:a]adelay=15000|15000[reverb_delayed]',
           // Замедляем обе дорожки вместе
-          '[voice_delayed][reverb_delayed]amix=inputs=2:weights=0.8 0.8,atempo=0.92[voice_mixed]',
-          // Обрабатываем смешанный голос
-          '[voice_mixed]equalizer=f=250:t=h:w=1:g=-6,equalizer=f=1500:t=h:w=1:g=-4,equalizer=f=3000:t=h:w=1:g=-8,equalizer=f=6000:t=h:w=1:g=-12,equalizer=f=10000:t=h:w=1:g=-14,volume=-3dB[voice_eq]',
+          '[voice_delayed][reverb_delayed]amix=inputs=2:weights=0.6 0.6,atempo=0.92[voice_mixed]',
+          // Обрабатываем смешанный голос с агрессивным срезом верхов
+          '[voice_mixed]equalizer=f=250:t=h:w=1:g=-6,equalizer=f=1500:t=h:w=1:g=-4,equalizer=f=3000:t=h:w=1:g=-8,equalizer=f=5000:t=h:w=1:g=-20,equalizer=f=7000:t=h:w=1:g=-20,equalizer=f=9000:t=h:w=1:g=-20,equalizer=f=11000:t=h:w=1:g=-20,volume=-3dB[voice_eq]',
           '[voice_eq]compand=0.3|0.3:1|1:-90/-60|-60/-40|-40/-30|-20/-20:6:0:-90:0.2[voice]',
-          // Обрабатываем музыку
-          '[2:a]volume=-24dB,atrim=0:445,asetpts=PTS-STARTPTS[audio_trimmed]',
+          // Обрабатываем музыку (громче на 2дБ)
+          '[2:a]volume=-22dB,atrim=0:445,asetpts=PTS-STARTPTS[audio_trimmed]',
           '[audio_trimmed]afade=t=out:st=430:d=15[music]',
           // Микшируем треки и добавляем лимитер
           '[voice][music]amix=inputs=2:duration=longest:dropout_transition=0,volume=18dB,alimiter=level_in=1:level_out=1:limit=0.7:attack=5:release=50[out]'
