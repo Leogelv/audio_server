@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
         '0.53',   // Микс уменьшен еще на 4%
         'highpass', '350',  // Срез низов повыше
         'treble', '+5',    // Больше верхов в реверб
+        'treble', '-20',   // Срез высоких частот на -20дБ
         'gain', '-1'      // Контроль громкости
       ]);
 
@@ -94,8 +95,8 @@ export async function POST(request: NextRequest) {
           '[1:a]adelay=15000|15000[reverb_delayed]',
           // Замедляем обе дорожки вместе
           '[voice_delayed][reverb_delayed]amix=inputs=2:weights=0.6 0.6,atempo=0.92[voice_mixed]',
-          // Обрабатываем смешанный голос с агрессивным срезом верхов
-          '[voice_mixed]equalizer=f=250:t=h:w=1:g=-6,equalizer=f=1500:t=h:w=1:g=-4,equalizer=f=3000:t=h:w=1:g=-8,equalizer=f=5000:t=h:w=1:g=-20,equalizer=f=7000:t=h:w=1:g=-20,equalizer=f=9000:t=h:w=1:g=-20,equalizer=f=11000:t=h:w=1:g=-20,volume=-3dB[voice_eq]',
+          // Обрабатываем смешанный голос с шельфовым срезом после 7кГц
+          '[voice_mixed]equalizer=f=250:t=h:w=1:g=-6,equalizer=f=1500:t=h:w=1:g=-4,equalizer=f=3000:t=h:w=1:g=-8,equalizer=f=7000:t=h:w=1.4:g=-20,volume=-3dB[voice_eq]',
           '[voice_eq]compand=0.3|0.3:1|1:-90/-60|-60/-40|-40/-30|-20/-20:6:0:-90:0.2[voice]',
           // Обрабатываем музыку (громче на 2дБ)
           '[2:a]volume=-22dB,atrim=0:445,asetpts=PTS-STARTPTS[audio_trimmed]',
