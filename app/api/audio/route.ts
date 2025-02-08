@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
           // Замедляем обе дорожки вместе
           '[voice_delayed][reverb_delayed]amix=inputs=2:weights=0.6 0.6,atempo=0.90[voice_mixed]',
           // Обрабатываем смешанный голос с шельфовым срезом после 7кГц
-          '[voice_mixed]equalizer=f=250:t=h:w=1:g=-6,equalizer=f=1500:t=h:w=1:g=-4,equalizer=f=3000:t=h:w=1:g=-8,equalizer=f=7000:t=h:w=1.4:g=-20,volume=-26dB[voice_eq]',
+          '[voice_mixed]equalizer=f=250:t=h:w=1:g=-6,equalizer=f=1500:t=h:w=1:g=-4,equalizer=f=3000:t=h:w=1:g=-8,equalizer=f=7000:t=h:w=1.4:g=-20,volume=-26dB,highpass=f=200,lowpass=f=9000,asendcmd=c=\'0 aeval exp(1)\':c=\'0.01 aeval exp(0.5)\',equalizer=f=8000:t=h:w=0.5:g=-12[voice_eq]',
           '[voice_eq]compand=0.3|0.3:1|1:-90/-60|-60/-40|-40/-30|-20/-20:6:0:-90:0.2[voice]',
           // Обрабатываем музыку (громче на 2дБ)
           '[2:a]volume=-22dB,atrim=0:445,asetpts=PTS-STARTPTS[audio_trimmed]',
