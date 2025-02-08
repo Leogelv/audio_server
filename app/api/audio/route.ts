@@ -47,12 +47,12 @@ export async function POST(request: NextRequest) {
         voicePath,
         reverbPath,
         'reverb',
-        '85',     // Чуть меньше реверберации (-15%)
+        '64',     // Реверберация уменьшена еще на 15%
         '20',     // Минимальный HF демпинг для длинного хвоста
-        '85',     // Чуть меньше размер (-15%)
+        '72',     // Размер уменьшен еще на 15%
         '100',    // Максимальная стерео база
         '0',      // Без пре-делея
-        '0.7',    // Чуть меньше микс
+        '0.55',   // Микс уменьшен еще на 15%
         'highpass', '250',  // Срез низов
         'treble', '+5',    // Больше верхов в реверб
         'gain', '-1'      // Контроль громкости
@@ -88,15 +88,15 @@ export async function POST(request: NextRequest) {
         // Фильтры
         '-filter_complex',
         [
-          // Замедляем и обрабатываем сухой сигнал
-          '[0:a]atempo=0.92,equalizer=f=250:t=h:w=1:g=-6,equalizer=f=1500:t=h:w=1:g=-4,equalizer=f=3000:t=h:w=1:g=-8,equalizer=f=6000:t=h:w=1:g=-12,equalizer=f=10000:t=h:w=1:g=-14,volume=-3dB[voice_eq]',
-          '[voice_eq]compand=0.3|0.3:1|1:-90/-60|-60/-40|-40/-30|-20/-20:6:0:-90:0.2[voice_comp]',
-          // Замедляем реверб
-          '[1:a]atempo=0.92[reverb_slow]',
-          // Микшируем с ревербом
-          '[voice_comp][reverb_slow]amix=inputs=2:weights=0.8 0.8[voice_mixed]',
-          // Добавляем задержку
-          '[voice_mixed]adelay=15000|15000,volume=2dB[voice]',
+          // Сначала добавляем задержку к основному голосу
+          '[0:a]adelay=15000|15000[voice_delayed]',
+          // Добавляем задержку к реверб-дорожке
+          '[1:a]adelay=15000|15000[reverb_delayed]',
+          // Замедляем обе дорожки вместе
+          '[voice_delayed][reverb_delayed]amix=inputs=2:weights=0.8 0.8,atempo=0.92[voice_mixed]',
+          // Обрабатываем смешанный голос
+          '[voice_mixed]equalizer=f=250:t=h:w=1:g=-6,equalizer=f=1500:t=h:w=1:g=-4,equalizer=f=3000:t=h:w=1:g=-8,equalizer=f=6000:t=h:w=1:g=-12,equalizer=f=10000:t=h:w=1:g=-14,volume=-3dB[voice_eq]',
+          '[voice_eq]compand=0.3|0.3:1|1:-90/-60|-60/-40|-40/-30|-20/-20:6:0:-90:0.2[voice]',
           // Обрабатываем музыку
           '[2:a]volume=-24dB,atrim=0:445,asetpts=PTS-STARTPTS[audio_trimmed]',
           '[audio_trimmed]afade=t=out:st=430:d=15[music]',
