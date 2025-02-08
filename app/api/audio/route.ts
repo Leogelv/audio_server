@@ -49,10 +49,10 @@ export async function POST(request: NextRequest) {
         'reverb',
         '85',     // Чуть меньше реверберации (-15%)
         '20',     // Минимальный HF демпинг для длинного хвоста
-        '100',    // Максимальный размер
+        '85',     // Чуть меньше размер (-15%)
         '100',    // Максимальная стерео база
         '0',      // Без пре-делея
-        '0.7',    // Чуть меньше микс (-15% от 0.8)
+        '0.7',    // Чуть меньше микс
         'highpass', '250',  // Срез низов
         'treble', '+5',    // Больше верхов в реверб
         'gain', '-1'      // Контроль громкости
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
           // Замедляем реверб
           '[1:a]atempo=0.92[reverb_slow]',
           // Микшируем с ревербом
-          '[voice_comp][reverb_slow]amix=inputs=2:weights=0.8 0.7[voice_mixed]',
+          '[voice_comp][reverb_slow]amix=inputs=2:weights=0.8 0.8[voice_mixed]',
           // Добавляем задержку
           '[voice_mixed]adelay=15000|15000,volume=2dB[voice]',
           // Обрабатываем музыку
