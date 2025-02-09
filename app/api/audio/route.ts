@@ -11,11 +11,19 @@ export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('Starting audio processing...');
+    
     // Получаем файлы из формы
     const formData = await request.formData();
     const voiceTrack = formData.get('voice_track');
     const audioTrack = formData.get('audio_track');
     const fileName = formData.get('name') || 'mixed';
+
+    console.log('Files received:', {
+      voiceTrack: voiceTrack ? 'present' : 'missing',
+      audioTrack: audioTrack ? 'present' : 'missing',
+      fileName
+    });
 
     if (!voiceTrack || !audioTrack) {
       return NextResponse.json(
@@ -32,13 +40,28 @@ export async function POST(request: NextRequest) {
     const audioPath = join(tmpdir(), `audio-${Date.now()}.mp3`);
     const outputPath = join(tmpdir(), `output-${Date.now()}.mp3`);
 
-    console.log('Processing started:', { voicePath, audioPath, outputPath });
+    console.log('Temp paths created:', { voicePath, audioPath, outputPath });
 
-    // Сохраняем файлы
-    await writeFile(voicePath, Buffer.from(await (voiceTrack as File).arrayBuffer()));
-    await writeFile(audioPath, Buffer.from(await (audioTrack as File).arrayBuffer()));
+    try {
+      // Сохраняем файлы
+      const voiceBuffer = Buffer.from(await (voiceTrack as File).arrayBuffer());
+      const audioBuffer = Buffer.from(await (audioTrack as File).arrayBuffer());
+      
+      console.log('Buffers created:', {
+        voiceSize: voiceBuffer.length,
+        audioSize: audioBuffer.length
+      });
 
-    console.log('Files saved, starting FFmpeg...');
+      await writeFile(voicePath, voiceBuffer);
+      await writeFile(audioPath, audioBuffer);
+      
+      console.log('Files saved successfully');
+    } catch (error) {
+      console.error('Error saving files:', error);
+      throw error;
+    }
+
+    console.log('Starting FFmpeg processing...');
 
     // Обрабатываем аудио через ffmpeg CLI
     await new Promise((resolve, reject) => {
@@ -80,8 +103,11 @@ export async function POST(request: NextRequest) {
         outputPath
       ]);
 
+      console.log('FFmpeg command started');
+
       let lastProgress = 0;
       ffmpeg.stdout.on('data', (data) => {
+        console.log('FFmpeg stdout:', data.toString());
         const match = data.toString().match(/time=(\d+):(\d+):(\d+\.\d+)/);
         if (match) {
           const [, hours, minutes, seconds] = match;
@@ -94,11 +120,11 @@ export async function POST(request: NextRequest) {
       });
 
       ffmpeg.stderr.on('data', (data) => {
-        console.log(`ffmpeg: ${data}`);
+        console.log(`FFmpeg stderr: ${data}`);
       });
 
       ffmpeg.on('close', (code) => {
-        console.log('FFmpeg finished with code:', code);
+        console.log('FFmpeg process closed with code:', code);
         if (code === 0) {
           resolve(null);
         } else {
@@ -107,35 +133,46 @@ export async function POST(request: NextRequest) {
       });
 
       ffmpeg.on('error', (error) => {
-        console.error('FFmpeg error:', error);
+        console.error('FFmpeg process error:', error);
         reject(error);
       });
     });
 
     console.log('FFmpeg processing complete, reading output file...');
 
-    // Читаем обработанный файл
-    const outputBuffer = await readFile(outputPath);
+    try {
+      // Проверяем существование файла
+      const stats = await readFile(outputPath);
+      console.log('Output file stats:', {
+        size: stats.length,
+        exists: true
+      });
 
-    console.log('Output file read, size:', outputBuffer.length);
+      // Читаем обработанный файл
+      const outputBuffer = await readFile(outputPath);
+      console.log('Output file read successfully, size:', outputBuffer.length);
 
-    // Удаляем временные файлы
-    await Promise.all([
-      unlink(voicePath).catch(() => {}),
-      unlink(audioPath).catch(() => {}),
-      unlink(outputPath).catch(() => {})
-    ]);
+      // Удаляем временные файлы
+      await Promise.all([
+        unlink(voicePath).catch((e) => console.error('Error deleting voice file:', e)),
+        unlink(audioPath).catch((e) => console.error('Error deleting audio file:', e)),
+        unlink(outputPath).catch((e) => console.error('Error deleting output file:', e))
+      ]);
 
-    console.log('Temporary files cleaned up, sending response...');
+      console.log('Temporary files cleaned up');
 
-    // Отправляем файл
-    return new Response(outputBuffer, {
-      headers: {
-        'Content-Type': 'audio/mpeg',
-        'Content-Disposition': `attachment; filename=${fileName}.mp3`,
-        'Content-Length': outputBuffer.length.toString(),
-      }
-    });
+      // Отправляем файл
+      return new Response(outputBuffer, {
+        headers: {
+          'Content-Type': 'audio/mpeg',
+          'Content-Disposition': `attachment; filename=${fileName}.mp3`,
+          'Content-Length': outputBuffer.length.toString(),
+        }
+      });
+    } catch (error) {
+      console.error('Error reading output file:', error);
+      throw error;
+    }
 
   } catch (error) {
     console.error('Error processing audio:', error);
@@ -143,6 +180,7 @@ export async function POST(request: NextRequest) {
       { 
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred',
+        stack: error instanceof Error ? error.stack : undefined
       },
       { status: 500 }
     );
