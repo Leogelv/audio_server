@@ -10,8 +10,14 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
+  const logs: string[] = [];
+  const log = (message: string) => {
+    console.log(message);
+    logs.push(message);
+  };
+
   try {
-    console.log('Starting audio processing...');
+    log('Starting audio processing...');
     
     // Получаем файлы из формы
     const formData = await request.formData();
@@ -19,17 +25,18 @@ export async function POST(request: NextRequest) {
     const audioTrack = formData.get('audio_track');
     const fileName = formData.get('name') || 'mixed';
 
-    console.log('Files received:', {
+    log(`Files received: ${JSON.stringify({
       voiceTrack: voiceTrack ? 'present' : 'missing',
       audioTrack: audioTrack ? 'present' : 'missing',
       fileName
-    });
+    })}`);
 
     if (!voiceTrack || !audioTrack) {
       return NextResponse.json(
         { 
           success: false,
           error: 'Both voice_track and audio_track are required',
+          logs
         },
         { status: 400 }
       );
@@ -40,28 +47,28 @@ export async function POST(request: NextRequest) {
     const audioPath = join(tmpdir(), `audio-${Date.now()}.mp3`);
     const outputPath = join(tmpdir(), `output-${Date.now()}.mp3`);
 
-    console.log('Temp paths created:', { voicePath, audioPath, outputPath });
+    log(`Temp paths created: ${JSON.stringify({ voicePath, audioPath, outputPath })}`);
 
     try {
       // Сохраняем файлы
       const voiceBuffer = Buffer.from(await (voiceTrack as File).arrayBuffer());
       const audioBuffer = Buffer.from(await (audioTrack as File).arrayBuffer());
       
-      console.log('Buffers created:', {
+      log(`Buffers created: ${JSON.stringify({
         voiceSize: voiceBuffer.length,
         audioSize: audioBuffer.length
-      });
+      })}`);
 
       await writeFile(voicePath, voiceBuffer);
       await writeFile(audioPath, audioBuffer);
       
-      console.log('Files saved successfully');
+      log('Files saved successfully');
     } catch (error) {
-      console.error('Error saving files:', error);
+      log(`Error saving files: ${error}`);
       throw error;
     }
 
-    console.log('Starting FFmpeg processing...');
+    log('Starting FFmpeg processing...');
 
     // Обрабатываем аудио через ffmpeg CLI
     await new Promise((resolve, reject) => {
@@ -103,28 +110,29 @@ export async function POST(request: NextRequest) {
         outputPath
       ]);
 
-      console.log('FFmpeg command started');
+      log('FFmpeg command started');
 
       let lastProgress = 0;
       ffmpeg.stdout.on('data', (data) => {
-        console.log('FFmpeg stdout:', data.toString());
-        const match = data.toString().match(/time=(\d+):(\d+):(\d+\.\d+)/);
+        const output = data.toString();
+        log(`FFmpeg stdout: ${output}`);
+        const match = output.match(/time=(\d+):(\d+):(\d+\.\d+)/);
         if (match) {
           const [, hours, minutes, seconds] = match;
           const currentTime = parseInt(hours) * 3600 + parseInt(minutes) * 60 + parseFloat(seconds);
           if (currentTime - lastProgress >= 30) {
-            console.log(`Processing progress: ${Math.floor(currentTime)}s`);
+            log(`Processing progress: ${Math.floor(currentTime)}s`);
             lastProgress = currentTime;
           }
         }
       });
 
       ffmpeg.stderr.on('data', (data) => {
-        console.log(`FFmpeg stderr: ${data}`);
+        log(`FFmpeg stderr: ${data}`);
       });
 
       ffmpeg.on('close', (code) => {
-        console.log('FFmpeg process closed with code:', code);
+        log(`FFmpeg process closed with code: ${code}`);
         if (code === 0) {
           resolve(null);
         } else {
@@ -133,33 +141,33 @@ export async function POST(request: NextRequest) {
       });
 
       ffmpeg.on('error', (error) => {
-        console.error('FFmpeg process error:', error);
+        log(`FFmpeg process error: ${error}`);
         reject(error);
       });
     });
 
-    console.log('FFmpeg processing complete, reading output file...');
+    log('FFmpeg processing complete, reading output file...');
 
     try {
       // Проверяем существование файла
       const stats = await readFile(outputPath);
-      console.log('Output file stats:', {
+      log(`Output file stats: ${JSON.stringify({
         size: stats.length,
         exists: true
-      });
+      })}`);
 
       // Читаем обработанный файл
       const outputBuffer = await readFile(outputPath);
-      console.log('Output file read successfully, size:', outputBuffer.length);
+      log(`Output file read successfully, size: ${outputBuffer.length}`);
 
       // Удаляем временные файлы
       await Promise.all([
-        unlink(voicePath).catch((e) => console.error('Error deleting voice file:', e)),
-        unlink(audioPath).catch((e) => console.error('Error deleting audio file:', e)),
-        unlink(outputPath).catch((e) => console.error('Error deleting output file:', e))
+        unlink(voicePath).catch((e) => log(`Error deleting voice file: ${e}`)),
+        unlink(audioPath).catch((e) => log(`Error deleting audio file: ${e}`)),
+        unlink(outputPath).catch((e) => log(`Error deleting output file: ${e}`))
       ]);
 
-      console.log('Temporary files cleaned up');
+      log('Temporary files cleaned up');
 
       // Отправляем файл
       return new Response(outputBuffer, {
@@ -167,20 +175,22 @@ export async function POST(request: NextRequest) {
           'Content-Type': 'audio/mpeg',
           'Content-Disposition': `attachment; filename=${fileName}.mp3`,
           'Content-Length': outputBuffer.length.toString(),
+          'X-Processing-Logs': JSON.stringify(logs)
         }
       });
     } catch (error) {
-      console.error('Error reading output file:', error);
+      log(`Error reading output file: ${error}`);
       throw error;
     }
 
   } catch (error) {
-    console.error('Error processing audio:', error);
+    log(`Error processing audio: ${error}`);
     return NextResponse.json(
       { 
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred',
-        stack: error instanceof Error ? error.stack : undefined
+        stack: error instanceof Error ? error.stack : undefined,
+        logs
       },
       { status: 500 }
     );
