@@ -31,85 +31,48 @@ export async function POST(request: NextRequest) {
     const voicePath = join(tmpdir(), `voice-${Date.now()}.mp3`);
     const audioPath = join(tmpdir(), `audio-${Date.now()}.mp3`);
     const outputPath = join(tmpdir(), `output-${Date.now()}.mp3`);
-    const reverbPath = join(tmpdir(), `reverb-${Date.now()}.wav`); // Для SoX реверба
 
-    console.log('Processing started:', { voicePath, audioPath, outputPath, reverbPath });
+    console.log('Processing started:', { voicePath, audioPath, outputPath });
 
     // Сохраняем файлы
     await writeFile(voicePath, Buffer.from(await (voiceTrack as File).arrayBuffer()));
     await writeFile(audioPath, Buffer.from(await (audioTrack as File).arrayBuffer()));
 
-    console.log('Files saved, starting SoX processing...');
+    console.log('Files saved, starting FFmpeg...');
 
-    // Сначала обрабатываем голос через SoX для реверба
-    await new Promise((resolve, reject) => {
-      const sox = spawn('sox', [
-        voicePath,
-        reverbPath,
-        'reverb',
-        '61',     // Реверберация уменьшена еще на 4%
-        '10',     // Еще меньше HF демпинг для более длинного хвоста
-        '69',     // Размер уменьшен еще на 4%
-        '100',    // Максимальная стерео база
-        '0',      // Без пре-делея
-        '0.53',   // Микс уменьшен еще на 4%
-        'highpass', '350',  // Срез низов повыше
-        'treble', '+5',    // Больше верхов в реверб
-        'treble', '-20',   // Срез высоких частот на -20дБ
-        'gain', '-1'      // Контроль громкости
-      ]);
-
-      sox.stderr.on('data', (data) => {
-        console.log(`sox: ${data}`);
-      });
-
-      sox.on('close', (code) => {
-        if (code === 0) {
-          resolve(null);
-        } else {
-          reject(new Error(`SoX process exited with code ${code}`));
-        }
-      });
-
-      sox.on('error', (error) => {
-        reject(error);
-      });
-    });
-
-    console.log('SoX processing complete, starting FFmpeg...');
-
-    // Теперь обрабатываем через ffmpeg
+    // Обрабатываем аудио через ffmpeg CLI
     await new Promise((resolve, reject) => {
       const ffmpeg = spawn('ffmpeg', [
         // Входные файлы
         '-i', voicePath,
-        '-i', reverbPath,
         '-i', audioPath,
         
         // Фильтры
         '-filter_complex',
         [
-          // Сначала добавляем задержку к основному голосу
-          '[0:a]adelay=15000|15000[voice_delayed]',
-          // Добавляем задержку к реверб-дорожке
-          '[1:a]adelay=15000|15000[reverb_delayed]',
-          // Замедляем обе дорожки вместе
-          '[voice_delayed][reverb_delayed]amix=inputs=2:weights=0.6 0.6,atempo=0.90[voice_mixed]',
-          // Обрабатываем смешанный голос с шельфовым срезом после 7кГц
-          '[voice_mixed]equalizer=f=250:t=h:w=1:g=-6,equalizer=f=1500:t=h:w=1:g=-4,equalizer=f=3000:t=h:w=1:g=-8,equalizer=f=7000:t=h:w=1.4:g=-20,volume=-26dB,highpass=f=200,lowpass=f=9000,asendcmd=c=\'0 aeval exp(1)\':c=\'0.01 aeval exp(0.5)\',equalizer=f=8000:t=h:w=0.5:g=-12[voice_eq]',
-          '[voice_eq]compand=0.3|0.3:1|1:-90/-60|-60/-40|-40/-30|-20/-20:6:0:-90:0.2[voice]',
-          // Обрабатываем музыку (громче на 2дБ)
-          '[2:a]volume=-22dB,atrim=0:445,asetpts=PTS-STARTPTS[audio_trimmed]',
-          '[audio_trimmed]afade=t=out:st=430:d=15[music]',
+          // Разделяем на сухой и мокрый сигналы
+          '[0:a]asplit=2[dry][wet]',
+          // Обрабатываем мокрый сигнал (реверб)
+          '[wet]volume=-14dB,aecho=0.9:0.8:900|1200|1800:0.6|0.4|0.3,highpass=f=200[reverb]',
+          // Микшируем сухой сигнал с ревербом
+          '[dry][reverb]amix=inputs=2:weights=1 0.65[voice_delayed]',
+          // Добавляем задержку в 12 секунд
+          '[voice_delayed]adelay=12000|12000[voice_mixed]',
+          // Добавляем финальное усиление голоса
+          '[voice_mixed]volume=-8dB,asetrate=44100*0.95,aresample=44100[voice]',
+          // Обрабатываем музыку
+          '[1:a]volume=-24dB,atrim=0:378,asetpts=PTS-STARTPTS[audio_trimmed]',
+          // Добавляем фейд в конце (15 секунд)
+          '[audio_trimmed]afade=t=out:st=363:d=15[music]',
           // Микшируем треки и добавляем лимитер
           '[voice][music]amix=inputs=2:duration=longest:dropout_transition=0,volume=18dB,alimiter=level_in=1:level_out=1:limit=0.7:attack=5:release=50[out]'
         ].join(';'),
         
-        // Выходные параметры (максимальное качество)
+        // Выходные параметры
         '-map', '[out]',
         '-acodec', 'libmp3lame',
-        '-q:a', '0',  // Максимальное качество
-        '-b:a', '320k',  // Максимальный битрейт
+        '-q:a', '0',
+        '-b:a', '320k',
         '-ac', '2',
         '-ar', '44100',
         // Добавляем прогресс
@@ -160,8 +123,7 @@ export async function POST(request: NextRequest) {
     await Promise.all([
       unlink(voicePath).catch(() => {}),
       unlink(audioPath).catch(() => {}),
-      unlink(outputPath).catch(() => {}),
-      unlink(reverbPath).catch(() => {})
+      unlink(outputPath).catch(() => {})
     ]);
 
     console.log('Temporary files cleaned up, sending response...');
