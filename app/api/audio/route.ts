@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
           // Добавляем задержку в 12 секунд
           '[voice_delayed]adelay=12000|12000[voice_mixed]',
           // Добавляем финальное усиление голоса
-          '[voice_mixed]volume=-8dB,asetrate=44100*0.95,aresample=44100[voice]',
+          '[voice_mixed]volume=-5dB,asetrate=44100*0.95,aresample=44100[voice]',
           // Обрабатываем музыку
           '[1:a]volume=-24dB,atrim=0:378,asetpts=PTS-STARTPTS[audio_trimmed]',
           // Добавляем фейд в конце (15 секунд)
