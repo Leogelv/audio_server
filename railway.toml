@@ -5,11 +5,8 @@ buildCommand = "npm run build"
 [deploy]
 startCommand = "npm start"
 healthcheckPath = "/api/health"
-healthcheckTimeout = 300
+healthcheckTimeout = 100
 restartPolicyType = "on_failure"
-maxConcurrentReqs = 1
-timeout = 300
 
 [deploy.env]
-NODE_ENV = "production"
-NODE_OPTIONS = "--max-old-space-size=4096" 
+NODE_ENV = "production" 
