@@ -28,41 +28,76 @@ export async function POST(request: NextRequest) {
 
     // Создаем временные пути для файлов
     const voicePath = join(tmpdir(), `voice-${Date.now()}.mp3`);
-    const voiceProcessedPath = join(tmpdir(), `voice-processed-${Date.now()}.mp3`);
+    const voiceWetPath = join(tmpdir(), `voice-wet-${Date.now()}.mp3`);
+    const voiceDryPath = join(tmpdir(), `voice-dry-${Date.now()}.mp3`);
     const audioPath = join(tmpdir(), `audio-${Date.now()}.mp3`);
     const outputPath = join(tmpdir(), `output-${Date.now()}.mp3`);
 
-    console.log('Processing started:', { voicePath, voiceProcessedPath, audioPath, outputPath });
+    console.log('Processing started:', { voicePath, voiceWetPath, voiceDryPath, audioPath, outputPath });
 
     // Сохраняем файлы
     await writeFile(voicePath, Buffer.from(await (voiceTrack as File).arrayBuffer()));
     await writeFile(audioPath, Buffer.from(await (audioTrack as File).arrayBuffer()));
 
-    console.log('Files saved, processing voice with sox...');
+    console.log('Files saved, processing wet voice with sox...');
 
-    // Обрабатываем голос через sox
+    // Обрабатываем мокрый сигнал через sox
     await new Promise((resolve, reject) => {
       const sox = spawn('sox', [
         voicePath,
-        voiceProcessedPath,
+        voiceWetPath,
         'tempo', '0.93',
-        'reverb', '50', '50', '100', '100', '0', '5'
+        'gain', '-10',
+        'highpass', '600',
+        'treble', '+3',
+        'reverb', '50', '85', '60', '25', '0', '1',
+        'highpass', '800'
       ]);
 
       sox.stderr.on('data', (data) => {
-        console.log(`sox: ${data}`);
+        console.log(`sox wet: ${data}`);
       });
 
       sox.on('close', (code) => {
         if (code === 0) {
           resolve(null);
         } else {
-          reject(new Error(`Sox process exited with code ${code}`));
+          reject(new Error(`Sox wet process exited with code ${code}`));
         }
       });
 
       sox.on('error', (error) => {
-        console.error('Sox error:', error);
+        console.error('Sox wet error:', error);
+        reject(error);
+      });
+    });
+
+    console.log('Processing dry voice with sox...');
+
+    // Обрабатываем сухой сигнал через sox
+    await new Promise((resolve, reject) => {
+      const sox = spawn('sox', [
+        voicePath,
+        voiceDryPath,
+        'gain', '-3',
+        'tempo', '0.93',
+        'highpass', '100'
+      ]);
+
+      sox.stderr.on('data', (data) => {
+        console.log(`sox dry: ${data}`);
+      });
+
+      sox.on('close', (code) => {
+        if (code === 0) {
+          resolve(null);
+        } else {
+          reject(new Error(`Sox dry process exited with code ${code}`));
+        }
+      });
+
+      sox.on('error', (error) => {
+        console.error('Sox dry error:', error);
         reject(error);
       });
     });
@@ -73,19 +108,22 @@ export async function POST(request: NextRequest) {
     await new Promise((resolve, reject) => {
       const ffmpeg = spawn('ffmpeg', [
         // Входные файлы
-        '-i', voiceProcessedPath,
+        '-i', voiceDryPath,
+        '-i', voiceWetPath,
         '-i', audioPath,
         
         // Фильтры
         '-filter_complex',
         [
-          // Регулируем громкость треков
-          '[0:a]volume=7dB[voice]',
-          '[1:a]volume=-14dB,atrim=0:360,asetpts=PTS-STARTPTS[audio_trimmed]',
+          // Регулируем громкость треков и синхронизируем
+          '[0:a]volume=2[dry]',
+          '[1:a]volume=1,adelay=0|0[wet]',
+          '[2:a]volume=-14dB,atrim=0:360,asetpts=PTS-STARTPTS[audio_trimmed]',
           // Добавляем фейд в конце (15 секунд)
           '[audio_trimmed]afade=t=out:st=345:d=15[music]',
           // Микшируем треки и усиливаем общий микс
-          '[voice][music]amix=inputs=2:duration=first:dropout_transition=0,volume=5dB[out]'
+          '[dry][wet]amix=inputs=2:duration=first:dropout_transition=0:weights=3 1,adelay=13000|13000[voice]',
+          '[voice][music]amix=inputs=2:duration=first:dropout_transition=0,volume=8dB[out]'
         ].join(';'),
         
         // Выходные параметры
@@ -142,7 +180,8 @@ export async function POST(request: NextRequest) {
     // Удаляем временные файлы
     await Promise.all([
       unlink(voicePath).catch(() => {}),
-      unlink(voiceProcessedPath).catch(() => {}),
+      unlink(voiceWetPath).catch(() => {}),
+      unlink(voiceDryPath).catch(() => {}),
       unlink(audioPath).catch(() => {}),
       unlink(outputPath).catch(() => {})
     ]);
