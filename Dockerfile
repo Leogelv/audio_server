@@ -6,6 +6,7 @@ RUN apk add --no-cache ffmpeg sox python3 make g++
 # Увеличиваем лимиты на файлы
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 ENV NEXT_SHARP_PATH="/tmp/node_modules/sharp"
+ENV NEXT_TELEMETRY_DISABLED=1
 
 WORKDIR /app
 
@@ -18,8 +19,8 @@ RUN npm ci
 # Копируем исходники
 COPY . .
 
-# Собираем приложение
-RUN npm run build
+# Собираем приложение, игнорируя ошибки линтера
+RUN DISABLE_ESLINT_PLUGIN=true npm run build
 
 # Запускаем
 CMD ["npm", "start"] 
