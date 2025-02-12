@@ -3,7 +3,6 @@ import { spawn } from 'child_process';
 import { readFile, writeFile, unlink } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import JSZip from 'jszip';
 
 // Отключаем Edge Runtime для этого роута
 export const runtime = 'nodejs';
