@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const voiceTrack = formData.get('voice_track');
     const audioTrack = formData.get('audio_track');
+    const fileName = formData.get('name') || 'mixed';
 
     if (!voiceTrack || !audioTrack) {
       return NextResponse.json(
@@ -47,10 +48,10 @@ export async function POST(request: NextRequest) {
         voicePath,
         voiceWetPath,
         'tempo', '0.93',
-        'gain', '-10',
         'highpass', '600',
-        'treble', '+3',
-        'reverb', '50', '85', '60', '25', '0', '1',
+        'equalizer', '6000', '3q', '-15',
+        'equalizer', '8000', '2q', '-12',
+        'reverb', '100', '100', '100', '50', '0', '5',
         'highpass', '800'
       ]);
 
@@ -79,9 +80,9 @@ export async function POST(request: NextRequest) {
       const sox = spawn('sox', [
         voicePath,
         voiceDryPath,
-        'gain', '-3',
         'tempo', '0.93',
-        'highpass', '100'
+        'equalizer', '6000', '3q', '-15',
+        'equalizer', '8000', '2q', '-12'
       ]);
 
       sox.stderr.on('data', (data) => {
@@ -117,13 +118,13 @@ export async function POST(request: NextRequest) {
         [
           // Регулируем громкость треков и синхронизируем
           '[0:a]volume=4[dry]',
-          '[1:a]volume=1,adelay=0|0[wet]',
-          '[2:a]volume=-14dB,atrim=0:360,asetpts=PTS-STARTPTS[audio_trimmed]',
+          '[1:a]volume=1[wet]',
+          '[dry][wet]amix=inputs=2:duration=first:dropout_transition=0:weights=3 1,adelay=15000|15000[voice]',
+          '[2:a]atrim=0:360,asetpts=PTS-STARTPTS[audio_trimmed]',
           // Добавляем фейд в конце (15 секунд)
           '[audio_trimmed]afade=t=out:st=345:d=15[music]',
-          // Микшируем треки и усиливаем общий микс
-          '[dry][wet]amix=inputs=2:duration=first:dropout_transition=0:weights=3 1,adelay=13000|13000[voice]',
-          '[voice][music]amix=inputs=2:duration=first:dropout_transition=0,volume=8dB[out]'
+          // Микшируем треки
+          '[voice][music]amix=inputs=2:duration=first:dropout_transition=0[out]'
         ].join(';'),
         
         // Выходные параметры
@@ -192,7 +193,7 @@ export async function POST(request: NextRequest) {
     return new Response(outputBuffer, {
       headers: {
         'Content-Type': 'audio/mpeg',
-        'Content-Disposition': 'attachment; filename=mixed.mp3',
+        'Content-Disposition': `attachment; filename=${fileName}.mp3`,
         'Content-Length': outputBuffer.length.toString(),
       }
     });
