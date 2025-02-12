@@ -120,8 +120,8 @@ export async function POST(request: NextRequest) {
         '-filter_complex',
         [
           // Регулируем громкость треков и синхронизируем
-          '[0:a]volume=20[dry]',
-          '[1:a]volume=17[wet]',
+          '[0:a]volume=23[dry]',
+          '[1:a]volume=21[wet]',
           '[dry][wet]amix=inputs=2:duration=first:dropout_transition=0:weights=3 1,adelay=15000|15000[voice]',
           '[2:a]atrim=0:360,asetpts=PTS-STARTPTS[audio_trimmed]',
           // Добавляем фейд в конце (15 секунд)
